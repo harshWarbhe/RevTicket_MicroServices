@@ -7,7 +7,7 @@ spring:
 
   cloud:
     consul:
-      host: localhost
+      host: consul
       port: 8500
       discovery:
         enabled: true
@@ -16,7 +16,7 @@ spring:
         health-check-path: /actuator/health
         health-check-interval: 10s
         instance-id: ${spring.application.name}:${server.port}
-        hostname: localhost
+        hostname: dashboard-service
         prefer-ip-address: false
 
 jwt:

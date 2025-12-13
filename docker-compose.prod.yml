@@ -1,251 +1,257 @@
+version: '3.8'
+
 services:
-  mysql:
+  consul:
+    image: consul:1.15
+    container_name: consul
+    ports:
+      - "8500:8500"
+    command: agent -server -bootstrap -ui -client=0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8500/v1/status/leader"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  revticket-mysql:
     image: mysql:8.0
     container_name: revticket-mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-revticket_db}
+      MYSQL_DATABASE: revticket_db
     ports:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-    networks:
-      - revticket-network
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  mongodb:
+  revticket-mongodb:
     image: mongo:7.0
     container_name: revticket-mongodb
     ports:
       - "27018:27017"
     volumes:
       - mongodb_data:/data/db
-    networks:
-      - revticket-network
-    restart: unless-stopped
-
-  consul:
-    image: consul:1.15
-    container_name: consul
-    ports:
-      - "8500:8500"
-    command: consul agent -dev -ui -client=0.0.0.0
-    networks:
-      - revticket-network
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   api-gateway:
-    image: harshwarbhe/api-gateway:latest
+    image: your-dockerhub-username/revticket-api-gateway:latest
     container_name: api-gateway
     ports:
       - "8080:8080"
     environment:
-      SPRING_CLOUD_CONSUL_HOST: consul
-      JWT_SECRET: ${JWT_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      - consul
-    networks:
-      - revticket-network
+      consul:
+        condition: service_healthy
     restart: unless-stopped
 
   user-service:
-    image: harshwarbhe/user-service:latest
+    image: your-dockerhub-username/revticket-user-service:latest
     container_name: user-service
     ports:
       - "8081:8081"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/user_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      SPRING_CLOUD_CONSUL_HOST: consul
-      JWT_SECRET: ${JWT_SECRET}
-      MAIL_HOST: ${MAIL_HOST}
-      MAIL_USERNAME: ${MAIL_USERNAME}
-      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      - SPRING_DATASOURCE_URL=jdbc:mysql://revticket-mysql:3306/user_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
     depends_on:
-      - mysql
-      - consul
-    networks:
-      - revticket-network
+      consul:
+        condition: service_healthy
+      revticket-mysql:
+        condition: service_healthy
     restart: unless-stopped
 
   movie-service:
-    image: harshwarbhe/movie-service:latest
+    image: your-dockerhub-username/revticket-movie-service:latest
     container_name: movie-service
     ports:
       - "8082:8082"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/movie_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      SPRING_CLOUD_CONSUL_HOST: consul
+      - SPRING_DATASOURCE_URL=jdbc:mysql://revticket-mysql:3306/movie_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      - mysql
-      - consul
-    networks:
-      - revticket-network
+      consul:
+        condition: service_healthy
+      revticket-mysql:
+        condition: service_healthy
     restart: unless-stopped
 
   theater-service:
-    image: harshwarbhe/theater-service:latest
+    image: your-dockerhub-username/revticket-theater-service:latest
     container_name: theater-service
     ports:
       - "8083:8083"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/theater_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      SPRING_CLOUD_CONSUL_HOST: consul
+      - SPRING_DATASOURCE_URL=jdbc:mysql://revticket-mysql:3306/theater_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      - mysql
-      - consul
-    networks:
-      - revticket-network
+      consul:
+        condition: service_healthy
+      revticket-mysql:
+        condition: service_healthy
     restart: unless-stopped
 
   showtime-service:
-    image: harshwarbhe/showtime-service:latest
+    image: your-dockerhub-username/revticket-showtime-service:latest
     container_name: showtime-service
     ports:
       - "8084:8084"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/showtime_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      SPRING_CLOUD_CONSUL_HOST: consul
+      - SPRING_DATASOURCE_URL=jdbc:mysql://revticket-mysql:3306/showtime_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      - mysql
-      - consul
-    networks:
-      - revticket-network
+      consul:
+        condition: service_healthy
+      revticket-mysql:
+        condition: service_healthy
     restart: unless-stopped
 
   booking-service:
-    image: harshwarbhe/booking-service:latest
+    image: your-dockerhub-username/revticket-booking-service:latest
     container_name: booking-service
     ports:
       - "8085:8085"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/booking_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      SPRING_CLOUD_CONSUL_HOST: consul
+      - SPRING_DATASOURCE_URL=jdbc:mysql://revticket-mysql:3306/booking_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      - mysql
-      - consul
-    networks:
-      - revticket-network
+      consul:
+        condition: service_healthy
+      revticket-mysql:
+        condition: service_healthy
     restart: unless-stopped
 
   payment-service:
-    image: harshwarbhe/payment-service:latest
+    image: your-dockerhub-username/revticket-payment-service:latest
     container_name: payment-service
     ports:
       - "8086:8086"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/payment_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      SPRING_CLOUD_CONSUL_HOST: consul
-      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
-      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
+      - SPRING_DATASOURCE_URL=jdbc:mysql://revticket-mysql:3306/payment_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
     depends_on:
-      - mysql
-      - consul
-    networks:
-      - revticket-network
+      consul:
+        condition: service_healthy
+      revticket-mysql:
+        condition: service_healthy
     restart: unless-stopped
 
   review-service:
-    image: harshwarbhe/review-service:latest
+    image: your-dockerhub-username/revticket-review-service:latest
     container_name: review-service
     ports:
       - "8087:8087"
     environment:
-      MONGODB_URI: mongodb://mongodb:27017/review_service_db
-      SPRING_CLOUD_CONSUL_HOST: consul
+      - SPRING_DATA_MONGODB_URI=mongodb://revticket-mongodb:27017/review_service_db
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      - mongodb
-      - consul
-    networks:
-      - revticket-network
+      consul:
+        condition: service_healthy
+      revticket-mongodb:
+        condition: service_healthy
     restart: unless-stopped
 
   search-service:
-    image: harshwarbhe/search-service:latest
+    image: your-dockerhub-username/revticket-search-service:latest
     container_name: search-service
     ports:
       - "8088:8088"
     environment:
-      SPRING_CLOUD_CONSUL_HOST: consul
+      - SPRING_DATA_MONGODB_URI=mongodb://revticket-mongodb:27017/search_service_db
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      - consul
-    networks:
-      - revticket-network
+      consul:
+        condition: service_healthy
+      revticket-mongodb:
+        condition: service_healthy
     restart: unless-stopped
 
   notification-service:
-    image: harshwarbhe/notification-service:latest
+    image: your-dockerhub-username/revticket-notification-service:latest
     container_name: notification-service
     ports:
       - "8089:8089"
     environment:
-      SPRING_CLOUD_CONSUL_HOST: consul
-      MAIL_HOST: ${MAIL_HOST}
-      MAIL_PORT: ${MAIL_PORT}
-      MAIL_USERNAME: ${MAIL_USERNAME}
-      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      - SPRING_DATASOURCE_URL=jdbc:mysql://revticket-mysql:3306/notification_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
     depends_on:
-      - consul
-    networks:
-      - revticket-network
+      consul:
+        condition: service_healthy
+      revticket-mysql:
+        condition: service_healthy
     restart: unless-stopped
 
   settings-service:
-    image: harshwarbhe/settings-service:latest
+    image: your-dockerhub-username/revticket-settings-service:latest
     container_name: settings-service
     ports:
       - "8090:8090"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/settings_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      SPRING_CLOUD_CONSUL_HOST: consul
+      - SPRING_DATASOURCE_URL=jdbc:mysql://revticket-mysql:3306/settings_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      - mysql
-      - consul
-    networks:
-      - revticket-network
+      consul:
+        condition: service_healthy
+      revticket-mysql:
+        condition: service_healthy
     restart: unless-stopped
 
   dashboard-service:
-    image: harshwarbhe/dashboard-service:latest
+    image: your-dockerhub-username/revticket-dashboard-service:latest
     container_name: dashboard-service
     ports:
       - "8091:8091"
     environment:
-      SPRING_CLOUD_CONSUL_HOST: consul
+      - SPRING_DATASOURCE_URL=jdbc:mysql://revticket-mysql:3306/dashboard_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      - consul
-    networks:
-      - revticket-network
+      consul:
+        condition: service_healthy
+      revticket-mysql:
+        condition: service_healthy
     restart: unless-stopped
 
-  frontend:
-    image: harshwarbhe/frontend:latest
+  revticket-frontend:
+    image: your-dockerhub-username/revticket-frontend:latest
     container_name: revticket-frontend
     ports:
-      - "80:80"
+      - "4200:80"
     depends_on:
       - api-gateway
-    networks:
-      - revticket-network
     restart: unless-stopped
 
 volumes:
   mysql_data:
   mongodb_data:
-
-networks:
-  revticket-network:
-    driver: bridge

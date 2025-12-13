@@ -7,7 +7,7 @@ spring:
 
   data:
     mongodb:
-      uri: ${MONGODB_URI:mongodb://localhost:27017/notification_service_db}
+      uri: ${MONGODB_URI:mongodb://revticket-mongodb:27017/notification_service_db}
       auto-index-creation: true
 
   mail:
@@ -33,7 +33,7 @@ spring:
 
   cloud:
     consul:
-      host: localhost
+      host: consul
       port: 8500
       discovery:
         enabled: true
@@ -42,7 +42,7 @@ spring:
         health-check-path: /actuator/health
         health-check-interval: 10s
         instance-id: ${spring.application.name}:${server.port}
-        hostname: localhost
+        hostname: notification-service
         prefer-ip-address: false
 
 app:

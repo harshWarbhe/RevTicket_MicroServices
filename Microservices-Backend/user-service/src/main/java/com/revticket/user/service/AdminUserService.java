@@ -48,9 +48,9 @@ public class AdminUserService {
         
         // Update user status based on the provided status
         if ("ACTIVE".equalsIgnoreCase(status)) {
-            user.setActive(true);
+            user.setIsActive(true);
         } else if ("BLOCKED".equalsIgnoreCase(status)) {
-            user.setActive(false);
+            user.setIsActive(false);
         } else {
             throw new RuntimeException("Invalid status: " + status + ". Must be ACTIVE or BLOCKED");
         }
@@ -98,6 +98,6 @@ public class AdminUserService {
                 user.getSmsNotifications(),
                 user.getPushNotifications(),
                 user.getCreatedAt(),
-                user.getActive() != null ? user.getActive() : true);
+                user.getIsActive() != null ? user.getIsActive() : true);
     }
 }
