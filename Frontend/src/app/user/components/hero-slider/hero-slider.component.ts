@@ -331,7 +331,12 @@ export class HeroSliderComponent implements OnInit, OnDestroy {
   bookMovie(movie: Movie): void {
     console.log('Booking movie:', movie.title, 'ID:', movie.id);
     if (movie?.id) {
-      this.router.navigate(['/user/movie-details', movie.id]);
+      const slug = this.createSlug(movie.title);
+      this.router.navigate(['/user/movie-details', slug]);
     }
+  }
+  
+  private createSlug(title: string): string {
+    return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   }
 }

@@ -1,5 +1,6 @@
 package com.revticket.user.service;
 
+import com.revticket.user.client.NotificationServiceClient;
 import com.revticket.user.dto.AuthResponse;
 import com.revticket.user.dto.LoginRequest;
 import com.revticket.user.dto.OAuth2LoginRequest;
@@ -17,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -33,6 +35,9 @@ public class AuthService {
 
     @Autowired
     private AuthenticationManager authenticationManager;
+    
+    @Autowired
+    private NotificationServiceClient notificationServiceClient;
 
     @org.springframework.beans.factory.annotation.Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -110,6 +115,16 @@ public class AuthService {
         user.setAuthProvider(User.AuthProvider.LOCAL); // Set as LOCAL auth
 
         user = userRepository.save(user);
+        
+        // Send admin notification for new user
+        try {
+            Map<String, String> notificationRequest = new java.util.HashMap<>();
+            notificationRequest.put("userName", user.getName());
+            notificationRequest.put("userEmail", user.getEmail());
+            notificationServiceClient.sendAdminNewUser(notificationRequest);
+        } catch (Exception e) {
+            System.out.println("Failed to send admin new user notification: " + e.getMessage());
+        }
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
         UserDto userDto = convertToDto(user);

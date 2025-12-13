@@ -156,11 +156,21 @@ export class ShowtimesComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     
     if (id) {
-      this.loadDataById(id);
+      // Check if it's a UUID or a slug
+      if (this.isUUID(id)) {
+        this.loadDataById(id);
+      } else {
+        this.loadDataBySlug(id);
+      }
     } else {
       this.alertService.error('Invalid movie');
       this.router.navigate(['/user/home']);
     }
+  }
+  
+  private isUUID(str: string): boolean {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
   }
 
   selectDate(date: Date): void {
@@ -233,6 +243,13 @@ export class ShowtimesComponent implements OnInit {
       next: (movie: Movie) => {
         this.movie.set(movie);
         this.loadShowtimes(movie.id);
+        
+        // Redirect to slug URL if accessed via UUID
+        const currentId = this.route.snapshot.paramMap.get('id');
+        if (currentId && this.isUUID(currentId)) {
+          const slug = this.createSlug(movie.title);
+          this.router.navigate(['/user/showtimes', slug], { replaceUrl: true });
+        }
       },
       error: () => {
         this.error.set('Movie not found');
@@ -241,6 +258,36 @@ export class ShowtimesComponent implements OnInit {
         this.router.navigate(['/user/home']);
       }
     });
+  }
+  
+  private loadDataBySlug(slug: string): void {
+    this.loading.set(true);
+    
+    // Get all movies and find by slug
+    this.movieService.getMovies().subscribe({
+      next: (movies: Movie[]) => {
+        const movie = movies.find((m: Movie) => this.createSlug(m.title) === slug);
+        if (movie) {
+          this.movie.set(movie);
+          this.loadShowtimes(movie.id);
+        } else {
+          this.error.set('Movie not found');
+          this.alertService.error('Movie not found');
+          this.router.navigate(['/user/home']);
+        }
+        this.loading.set(false);
+      },
+      error: () => {
+        this.error.set('Movie not found');
+        this.loading.set(false);
+        this.alertService.error('Movie not found');
+        this.router.navigate(['/user/home']);
+      }
+    });
+  }
+  
+  private createSlug(title: string): string {
+    return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   }
 
   private loadShowtimes(movieId: string): void {

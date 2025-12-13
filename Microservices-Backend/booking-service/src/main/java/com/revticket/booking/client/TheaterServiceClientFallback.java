@@ -12,6 +12,14 @@ public class TheaterServiceClientFallback implements TheaterServiceClient {
     public Map<String, Object> getScreenConfig(String id) {
         return new HashMap<>();
     }
+    
+    @Override
+    public Map<String, Object> getScreenById(String id) {
+        Map<String, Object> fallback = new HashMap<>();
+        fallback.put("id", id);
+        fallback.put("name", "Screen Info Unavailable");
+        return fallback;
+    }
 
     @Override
     public TheaterDTO getTheaterById(String id) {

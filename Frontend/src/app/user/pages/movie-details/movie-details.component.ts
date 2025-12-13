@@ -54,12 +54,23 @@ export class MovieDetailsComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     
     if (id) {
-      // Clean movieId by removing any colon and suffix
-      const cleanId = id.split(':')[0];
-      this.loadMovie(cleanId);
+      // Check if it's a UUID (contains hyphens and is 36 chars) or a slug
+      if (this.isUUID(id)) {
+        // Clean movieId by removing any colon and suffix
+        const cleanId = id.split(':')[0];
+        this.loadMovie(cleanId);
+      } else {
+        // It's a slug, load by slug
+        this.loadMovieBySlug(id);
+      }
     } else {
       this.router.navigate(['/user/home']);
     }
+  }
+  
+  private isUUID(str: string): boolean {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str.split(':')[0]);
   }
 
   setActiveTab(tab: string): void {
@@ -73,7 +84,8 @@ export class MovieDetailsComponent implements OnInit {
   bookTickets(): void {
     const movie = this.movie();
     if (movie) {
-      this.router.navigate(['/user/showtimes', movie.id]);
+      const slug = this.createSlug(movie.title);
+      this.router.navigate(['/user/showtimes', slug]);
     }
   }
 
@@ -87,6 +99,13 @@ export class MovieDetailsComponent implements OnInit {
         this.movie.set(movie);
         this.loadShowtimes(movie.id);
         this.loading.set(false);
+        
+        // Redirect to slug URL if accessed via UUID
+        const currentId = this.route.snapshot.paramMap.get('id');
+        if (currentId && this.isUUID(currentId)) {
+          const slug = this.createSlug(movie.title);
+          this.router.navigate(['/user/movie-details', slug], { replaceUrl: true });
+        }
       },
       error: () => {
         this.loading.set(false);

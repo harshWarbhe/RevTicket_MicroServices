@@ -1,6 +1,7 @@
 package com.revticket.booking.service;
 
 import com.revticket.booking.client.MovieServiceClient;
+import com.revticket.booking.client.NotificationServiceClient;
 import com.revticket.booking.client.ShowtimeServiceClient;
 import com.revticket.booking.client.TheaterServiceClient;
 import com.revticket.booking.dto.*;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,6 +38,9 @@ public class BookingService {
     
     @Autowired
     private TheaterServiceClient theaterServiceClient;
+    
+    @Autowired
+    private NotificationServiceClient notificationServiceClient;
 
     private static final int MAX_SEATS_PER_BOOKING = 10;
     private static final int CANCELLATION_WINDOW_HOURS = 2;
@@ -99,6 +104,14 @@ public class BookingService {
         booking.setQrCode("QR_" + UUID.randomUUID().toString());
 
         booking = bookingRepository.save(booking);
+        
+        // Send booking confirmation notification
+        try {
+            sendBookingConfirmationNotification(booking);
+            sendAdminNewBookingNotification(booking);
+        } catch (Exception e) {
+            System.out.println("Failed to send booking confirmation notification: " + e.getMessage());
+        }
 
         // Block the seats
         for (String seatId : request.getSeats()) {
@@ -148,6 +161,14 @@ public class BookingService {
         booking.setCancellationRequestedAt(LocalDateTime.now());
         
         booking = bookingRepository.save(booking);
+        
+        // Send cancellation request notification to admin
+        try {
+            sendCancellationRequestNotification(booking);
+        } catch (Exception e) {
+            System.out.println("Failed to send cancellation request notification: " + e.getMessage());
+        }
+        
         return mapToResponse(booking);
     }
 
@@ -191,6 +212,14 @@ public class BookingService {
         booking.setRefundDate(LocalDateTime.now());
 
         Booking savedBooking = bookingRepository.save(booking);
+        
+        // Send booking cancellation notification
+        try {
+            sendBookingCancelledNotification(savedBooking);
+        } catch (Exception e) {
+            System.out.println("Failed to send booking cancellation notification: " + e.getMessage());
+        }
+        
         return mapToResponse(savedBooking);
     }
 
@@ -328,11 +357,25 @@ public class BookingService {
                 movieId = Objects.requireNonNullElse(showtimeDTO.getMovieId(), "");
                 theaterId = Objects.requireNonNullElse(showtimeDTO.getTheaterId(), "");
                 showtime = showtimeDTO.getShowDateTime();
-                if (screen == null || screen.isEmpty()) {
-                    screen = showtimeDTO.getScreen();
-                }
                 if (ticketPrice == null) {
                     ticketPrice = showtimeDTO.getTicketPrice();
+                }
+                
+                // Get screen name from theater service
+                if (screen == null || screen.isEmpty()) {
+                    String screenId = showtimeDTO.getScreen();
+                    if (screenId != null && !screenId.isEmpty()) {
+                        try {
+                            Map<String, Object> screenData = theaterServiceClient.getScreenById(screenId);
+                            if (screenData != null && screenData.containsKey("name")) {
+                                screen = (String) screenData.get("name");
+                            } else {
+                                screen = "Screen " + screenId.substring(0, Math.min(8, screenId.length()));
+                            }
+                        } catch (Exception e) {
+                            screen = "Screen Info Unavailable";
+                        }
+                    }
                 }
                 
                 if (!movieId.isEmpty()) {
@@ -393,5 +436,44 @@ public class BookingService {
                 .refundDate(booking.getRefundDate())
                 .cancellationReason(Objects.requireNonNullElse(booking.getCancellationReason(), ""))
                 .build();
+    }
+    
+    private void sendBookingConfirmationNotification(Booking booking) {
+        Map<String, Object> request = new java.util.HashMap<>();
+        request.put("customerEmail", booking.getCustomerEmail());
+        request.put("customerName", booking.getCustomerName());
+        request.put("ticketNumber", booking.getTicketNumber());
+        request.put("bookingId", booking.getId());
+        request.put("totalAmount", booking.getTotalAmount());
+        notificationServiceClient.sendBookingConfirmation(request);
+    }
+    
+    private void sendCancellationRequestNotification(Booking booking) {
+        Map<String, Object> request = new java.util.HashMap<>();
+        request.put("bookingId", booking.getId());
+        request.put("customerName", booking.getCustomerName());
+        request.put("customerEmail", booking.getCustomerEmail());
+        request.put("reason", booking.getCancellationReason());
+        request.put("ticketNumber", booking.getTicketNumber());
+        notificationServiceClient.sendCancellationRequest(request);
+    }
+    
+    private void sendBookingCancelledNotification(Booking booking) {
+        Map<String, Object> request = new java.util.HashMap<>();
+        request.put("customerEmail", booking.getCustomerEmail());
+        request.put("customerName", booking.getCustomerName());
+        request.put("ticketNumber", booking.getTicketNumber());
+        request.put("refundAmount", booking.getRefundAmount());
+        notificationServiceClient.sendBookingCancelled(request);
+    }
+    
+    private void sendAdminNewBookingNotification(Booking booking) {
+        Map<String, Object> request = new java.util.HashMap<>();
+        request.put("bookingId", booking.getId());
+        request.put("customerName", booking.getCustomerName());
+        request.put("customerEmail", booking.getCustomerEmail());
+        request.put("ticketNumber", booking.getTicketNumber());
+        request.put("totalAmount", booking.getTotalAmount());
+        notificationServiceClient.sendAdminNewBooking(request);
     }
 }

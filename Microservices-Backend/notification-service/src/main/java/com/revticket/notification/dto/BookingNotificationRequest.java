@@ -10,6 +10,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BookingNotificationRequest {
+    private String bookingId;
     private String customerName;
     private String customerEmail;
     private String ticketNumber;

@@ -12,6 +12,9 @@ public interface TheaterServiceClient {
     @GetMapping("/api/screens/{id}/config")
     Map<String, Object> getScreenConfig(@PathVariable String id);
     
+    @GetMapping("/api/screens/{id}")
+    Map<String, Object> getScreenById(@PathVariable String id);
+    
     @GetMapping("/api/theaters/{id}")
     TheaterDTO getTheaterById(@PathVariable("id") String id);
 }

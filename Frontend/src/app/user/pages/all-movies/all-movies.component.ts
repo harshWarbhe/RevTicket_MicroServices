@@ -58,16 +58,26 @@ export class AllMoviesComponent implements OnInit {
   }
 
   viewDetails(movieId: string): void {
-    this.router.navigate(['/user/movie-details', movieId]);
+    const movie = this.movies().find(m => m.id === movieId);
+    const slug = movie ? this.createSlug(movie.title) : movieId;
+    this.router.navigate(['/user/movie-details', slug]);
   }
 
   viewShowtimes(event: Event, movieId: string): void {
     event.stopPropagation();
-    this.router.navigate(['/user/movie-details', movieId]);
+    const movie = this.movies().find(m => m.id === movieId);
+    const slug = movie ? this.createSlug(movie.title) : movieId;
+    this.router.navigate(['/user/showtimes', slug]);
   }
 
   bookNow(event: Event, movieId: string): void {
     event.stopPropagation();
-    this.router.navigate(['/user/movie-details', movieId]);
+    const movie = this.movies().find(m => m.id === movieId);
+    const slug = movie ? this.createSlug(movie.title) : movieId;
+    this.router.navigate(['/user/showtimes', slug]);
+  }
+  
+  private createSlug(title: string): string {
+    return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   }
 }

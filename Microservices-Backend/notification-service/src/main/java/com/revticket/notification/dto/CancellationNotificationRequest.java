@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CancellationNotificationRequest {
+    private String bookingId;
     private String customerName;
     private String customerEmail;
     private String ticketNumber;
