@@ -5,19 +5,7 @@ pipeline {
         DOCKER_REGISTRY = "${env.DOCKER_REGISTRY ?: 'docker.io'}"
         DOCKER_REPO = "${env.DOCKER_REPO ?: 'harshwarbhe'}"
         DOCKER_CREDENTIALS_ID = "${env.DOCKER_CREDENTIALS_ID ?: 'harshwarbhe'}"
-
-        MYSQL_ROOT_PASSWORD = credentials('mysql-root-password')
-        JWT_SECRET = credentials('jwt-secret')
-        RAZORPAY_KEY_ID = credentials('razorpay-key-id')
-        RAZORPAY_KEY_SECRET = credentials('razorpay-key-secret')
-        MAIL_USERNAME = credentials('mail-username')
-        MAIL_PASSWORD = credentials('mail-password')
     }
-    
-    // tools {
-    //     maven 'Maven'
-    //     jdk 'JDK-17'
-    // }
     
     stages {
         stage('Checkout') {
@@ -32,19 +20,38 @@ pipeline {
         stage('Environment Setup') {
             steps {
                 script {
+                    // Using provided configuration values
+                    // In a production environment, these should be managed via proper Credentials Binding
+                    def mysqlRootPassword = 'root'
+                    def jwtSecret = 'RevTicketSecretKeyForJWTTokenGeneration2024SecureAndLongEnough'
+                    def razorpayKeyId = 'rzp_test_Ro278zkDXduScL'
+                    def razorpayKeySecret = 'PBoZU26dOzGM9ABFwq4Ljc2p'
+                    def mailUsername = 'harshwarbhe18@gmail.com'
+                    def mailPassword = 'hghtodqpoaubkqjh'
+                    
+                    // Try to load safe credentials if available for MySQL root password only
+                    try {
+                         withCredentials([string(credentialsId: 'mysql-root-password', variable: 'PWD')]) {
+                            mysqlRootPassword = PWD
+                         }
+                    } catch (Exception e) {
+                         echo "Using default MySQL password."
+                    }
+
                     writeFile file: '.env', text: """
-MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+MYSQL_ROOT_PASSWORD=${mysqlRootPassword}
 MYSQL_DATABASE=revticket_db
-JWT_SECRET=${JWT_SECRET}
-RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
-RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
-MAIL_USERNAME=${MAIL_USERNAME}
-MAIL_PASSWORD=${MAIL_PASSWORD}
+JWT_SECRET=${jwtSecret}
+RAZORPAY_KEY_ID=${razorpayKeyId}
+RAZORPAY_KEY_SECRET=${razorpayKeySecret}
+MAIL_USERNAME=${mailUsername}
+MAIL_PASSWORD=${mailPassword}
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
 FRONTEND_URL=http://localhost:4200
 API_GATEWAY_URL=http://localhost:8080
 """
+                    env.MYSQL_ROOT_PASSWORD = mysqlRootPassword
                 }
             }
         }
@@ -658,7 +665,7 @@ API_GATEWAY_URL=http://localhost:8080
                     
                     View build: ${env.BUILD_URL}
                 """,
-                to: "${env.CHANGE_AUTHOR_EMAIL}"
+                to: "${env.CHANGE_AUTHOR_EMAIL ?: 'dev-team@example.com'}"
             )
         }
         failure {
@@ -674,7 +681,7 @@ API_GATEWAY_URL=http://localhost:8080
                     View build: ${env.BUILD_URL}
                     Console: ${env.BUILD_URL}console
                 """,
-                to: "${env.CHANGE_AUTHOR_EMAIL}"
+                to: "${env.CHANGE_AUTHOR_EMAIL ?: 'dev-team@example.com'}"
             )
         }
     }
