@@ -96,7 +96,9 @@ public class RazorpayService {
         // Step 2: Get showtime details
         logger.info("Fetching showtime details for: {}", request.getShowtimeId());
         Map<String, Object> showtime = showtimeServiceClient.getShowtimeById(request.getShowtimeId());
+        @SuppressWarnings("unchecked")
         Map<String, Object> movie = (Map<String, Object>) showtime.get("movie");
+        @SuppressWarnings("unchecked")
         Map<String, Object> theater = (Map<String, Object>) showtime.get("theater");
         String showtimeDateTime = (String) showtime.get("showDateTime");
         logger.debug("Showtime details fetched: movie={}, theater={}", movie.get("id"), theater.get("id"));

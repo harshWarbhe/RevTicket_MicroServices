@@ -42,8 +42,10 @@ public class ReviewService {
         boolean hasWatchedMovie = bookings.stream()
                 .anyMatch(booking -> {
                     String status = (String) booking.get("status");
+                    @SuppressWarnings("unchecked")
                     Map<String, Object> showtime = (Map<String, Object>) booking.get("showtime");
                     if (showtime != null) {
+                        @SuppressWarnings("unchecked")
                         Map<String, Object> showtimeMovie = (Map<String, Object>) showtime.get("movie");
                         String showtimeDateTime = (String) showtime.get("showDateTime");
                         return "CONFIRMED".equals(status) &&
@@ -167,7 +169,7 @@ public class ReviewService {
 
     public boolean canUserReviewMovie(String userId, String movieId, String token) {
         System.out.println("Checking if user can review movie - userId: " + userId + ", movieId: " + movieId);
-        
+
         if (reviewRepository.findByUserIdAndMovieId(userId, movieId).isPresent()) {
             System.out.println("User has already reviewed this movie");
             return false;
@@ -176,12 +178,14 @@ public class ReviewService {
         try {
             List<Map<String, Object>> bookings = bookingServiceClient.getUserBookings(userId, token);
             System.out.println("Found " + bookings.size() + " bookings for user");
-            
+
             return bookings.stream()
                     .anyMatch(booking -> {
                         String status = (String) booking.get("status");
+                        @SuppressWarnings("unchecked")
                         Map<String, Object> showtime = (Map<String, Object>) booking.get("showtime");
                         if (showtime != null) {
+                            @SuppressWarnings("unchecked")
                             Map<String, Object> movie = (Map<String, Object>) showtime.get("movie");
                             String showtimeDateTime = (String) showtime.get("showDateTime");
                             return "CONFIRMED".equals(status) &&
@@ -201,7 +205,7 @@ public class ReviewService {
         Long totalReviews = reviewRepository.count();
         Long approvedReviews = reviewRepository.countByApprovedTrue();
         Long pendingReviews = reviewRepository.countByApprovedFalse();
-        
+
         Map<String, Object> stats = new java.util.HashMap<>();
         stats.put("totalReviews", totalReviews);
         stats.put("approvedReviews", approvedReviews);

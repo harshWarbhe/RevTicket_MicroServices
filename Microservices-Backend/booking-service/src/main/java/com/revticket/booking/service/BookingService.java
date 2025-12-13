@@ -42,8 +42,7 @@ public class BookingService {
     @Autowired
     private NotificationServiceClient notificationServiceClient;
 
-    private static final int MAX_SEATS_PER_BOOKING = 10;
-    private static final int CANCELLATION_WINDOW_HOURS = 2;
+    // Constants removed as they were unused
 
     @Transactional
     public BookingResponse createBooking(String userId, BookingRequest request) {

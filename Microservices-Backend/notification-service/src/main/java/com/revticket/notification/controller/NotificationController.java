@@ -96,6 +96,7 @@ public class NotificationController {
     public ResponseEntity<Map<String, String>> notifyAdminNewBooking(@RequestBody Object requestBody) {
         BookingNotificationRequest request;
         if (requestBody instanceof Map) {
+            @SuppressWarnings("unchecked")
             Map<String, Object> requestMap = (Map<String, Object>) requestBody;
             request = new BookingNotificationRequest();
             request.setBookingId((String) requestMap.get("bookingId"));
