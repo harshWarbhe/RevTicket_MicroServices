@@ -17,9 +17,8 @@ pipeline {
     }
     
     tools {
-        maven 'Maven-3.8'
-        nodejs 'NodeJS-18'
-        dockerTool 'Docker'
+        maven 'Maven'
+        jdk 'JDK-17'
     }
     
     stages {
@@ -73,23 +72,33 @@ API_GATEWAY_URL=http://localhost:8080
             }
         }
         
+        stage('Install Node.js') {
+            steps {
+                sh '''
+                    # Install Node.js 18 if not present
+                    if ! command -v node &> /dev/null || [[ $(node -v | cut -d'v' -f2 | cut -d'.' -f1) -lt 18 ]]; then
+                        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+                        sudo apt-get install -y nodejs
+                    fi
+                    node --version
+                    npm --version
+                '''
+            }
+        }
+        
         stage('Build Backend Services') {
             steps {
-                dir('Microservices-Backend') {
-                    sh 'mvn clean compile -DskipTests'
-                }
+                sh 'mvn clean compile -DskipTests'
             }
         }
         
         stage('Test Backend Services') {
             steps {
-                dir('Microservices-Backend') {
-                    sh 'mvn test'
-                }
+                sh 'mvn test'
             }
             post {
                 always {
-                    publishTestResults testResultsPattern: 'Microservices-Backend/*/target/surefire-reports/*.xml'
+                    publishTestResults testResultsPattern: '*/target/surefire-reports/*.xml'
                 }
             }
         }
@@ -97,6 +106,9 @@ API_GATEWAY_URL=http://localhost:8080
 
         
         stage('Build Frontend') {
+            when {
+                expression { fileExists('Frontend/package.json') }
+            }
             steps {
                 dir('Frontend') {
                     sh 'npm ci'
@@ -109,12 +121,13 @@ API_GATEWAY_URL=http://localhost:8080
             parallel {
                 stage('Package Backend') {
                     steps {
-                        dir('Microservices-Backend') {
-                            sh 'mvn clean package -DskipTests'
-                        }
+                        sh 'mvn clean package -DskipTests'
                     }
                 }
                 stage('Package Frontend') {
+                    when {
+                        expression { fileExists('Frontend/package.json') }
+                    }
                     steps {
                         dir('Frontend') {
                             sh 'npm run build --prod'
@@ -150,20 +163,20 @@ API_GATEWAY_URL=http://localhost:8080
                             // Build for local use first (AMD64)
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/api-gateway/Dockerfile \
+                                    -f api-gateway/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:latest \
-                                    --load Microservices-Backend
+                                    --load api-gateway
                             """
                             
                             // Build multi-platform and push to registry
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/api-gateway/Dockerfile \
+                                        -f api-gateway/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:latest \
-                                        --push Microservices-Backend
+                                        --push api-gateway
                                 """
                             }
                         }
@@ -175,20 +188,20 @@ API_GATEWAY_URL=http://localhost:8080
                             // Build for local use first (AMD64)
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/user-service/Dockerfile \
+                                    -f user-service/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:latest \
-                                    --load Microservices-Backend
+                                    --load user-service
                             """
                             
                             // Build multi-platform and push to registry
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/user-service/Dockerfile \
+                                        -f user-service/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:latest \
-                                        --push Microservices-Backend
+                                        --push user-service
                                 """
                             }
                         }
