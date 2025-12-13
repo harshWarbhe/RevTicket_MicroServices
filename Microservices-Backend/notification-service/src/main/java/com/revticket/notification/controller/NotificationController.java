@@ -150,8 +150,9 @@ public class NotificationController {
         bookingRequest.setCustomerEmail((String) request.get("customerEmail"));
         bookingRequest.setCustomerName((String) request.get("customerName"));
         bookingRequest.setTicketNumber((String) request.get("ticketNumber"));
+        bookingRequest.setMovieTitle((String) request.get("movieTitle"));
         if (request.get("refundAmount") != null) {
-            bookingRequest.setTotalAmount(((Number) request.get("refundAmount")).doubleValue());
+            bookingRequest.setRefundAmount(((Number) request.get("refundAmount")).doubleValue());
         }
         emailService.sendCancellationConfirmation(bookingRequest);
         return ResponseEntity.ok(Map.of("message", "Booking cancellation notification sent"));

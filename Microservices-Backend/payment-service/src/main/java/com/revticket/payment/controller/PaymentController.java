@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -37,7 +38,14 @@ public class PaymentController {
 
     @GetMapping("/admin/payments/stats")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<PaymentStatsResponse> getPaymentStats() {
-        return ResponseEntity.ok(paymentService.getPaymentStats());
+    public ResponseEntity<Map<String, Object>> getPaymentStats() {
+        PaymentStatsResponse stats = paymentService.getPaymentStats();
+        Map<String, Object> response = new HashMap<>();
+        response.put("totalRevenue", stats.getTotalRevenue() != null ? stats.getTotalRevenue() : 0.0);
+        response.put("convenienceFees", 0.0);
+        response.put("gstAmount", 0.0);
+        response.put("netRevenue", stats.getTotalRevenue() != null ? stats.getTotalRevenue() : 0.0);
+        response.put("totalTransactions", stats.getTotalSuccessfulPayments());
+        return ResponseEntity.ok(response);
     }
 }

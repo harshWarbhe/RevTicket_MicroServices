@@ -57,7 +57,12 @@ public class AdminUserController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<UserStatsResponse> getUserStats() {
-        return ResponseEntity.ok(adminUserService.getUserStats());
+    public ResponseEntity<Map<String, Object>> getUserStats() {
+        UserStatsResponse stats = adminUserService.getUserStats();
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("totalUsers", stats.getTotalUsers());
+        response.put("usersLast7Days", stats.getUsersLast7Days());
+        response.put("usersLast30Days", stats.getUsersLast30Days());
+        return ResponseEntity.ok(response);
     }
 }

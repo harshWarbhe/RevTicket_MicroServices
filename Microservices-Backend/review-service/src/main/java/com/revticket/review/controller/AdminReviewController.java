@@ -48,4 +48,9 @@ public class AdminReviewController {
         reviewService.deleteReview(reviewId);
         return ResponseEntity.ok(new ApiResponse<>(true, null, "Review deleted"));
     }
+
+    @GetMapping("/stats")
+    public ResponseEntity<java.util.Map<String, Object>> getReviewStats() {
+        return ResponseEntity.ok(reviewService.getReviewStats());
+    }
 }

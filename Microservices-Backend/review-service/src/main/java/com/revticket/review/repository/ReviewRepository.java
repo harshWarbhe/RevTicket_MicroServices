@@ -19,4 +19,8 @@ public interface ReviewRepository extends MongoRepository<Review, String> {
     long countApprovedByMovieId(String movieId);
     
     long countByApproved(boolean approved);
+    
+    long countByApprovedTrue();
+    
+    long countByApprovedFalse();
 }

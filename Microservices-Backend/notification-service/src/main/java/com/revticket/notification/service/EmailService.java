@@ -123,10 +123,18 @@ public class EmailService {
     }
 
     public void sendCancellationConfirmation(BookingNotificationRequest request) {
+        System.out.println("=== CANCELLATION EMAIL DEBUG ===");
+        System.out.println("Movie Title: " + request.getMovieTitle());
+        System.out.println("Refund Amount: " + request.getRefundAmount());
+        System.out.println("Customer: " + request.getCustomerName());
+        System.out.println("Ticket: " + request.getTicketNumber());
+        
+        String movieTitle = request.getMovieTitle() != null ? request.getMovieTitle() : "RevTicket";
+        
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromEmail);
         message.setTo(request.getCustomerEmail());
-        message.setSubject("Booking Cancelled - " + request.getMovieTitle());
+        message.setSubject("Booking Cancelled - " + movieTitle);
         message.setText(buildCancellationBody(request));
         mailSender.send(message);
     }
@@ -171,12 +179,15 @@ public class EmailService {
     }
 
     private String buildCancellationBody(BookingNotificationRequest request) {
+        String movieTitle = request.getMovieTitle() != null ? request.getMovieTitle() : "Movie Info Unavailable";
+        Double refundAmount = request.getRefundAmount() != null ? request.getRefundAmount() : 0.0;
+        
         return "Dear " + request.getCustomerName() + ",\n\n" +
                 "Your booking has been cancelled.\n\n" +
                 "Booking Details:\n" +
                 "Ticket Number: " + request.getTicketNumber() + "\n" +
-                "Movie: " + request.getMovieTitle() + "\n" +
-                "Refund Amount: ₹" + (request.getRefundAmount() != null ? request.getRefundAmount() : 0) + "\n\n" +
+                "Movie: " + movieTitle + "\n" +
+                "Refund Amount: ₹" + String.format("%.1f", refundAmount) + "\n\n" +
                 "The refund will be processed within 5-7 business days.\n\n" +
                 "Best regards,\n" +
                 "RevTicket Team";

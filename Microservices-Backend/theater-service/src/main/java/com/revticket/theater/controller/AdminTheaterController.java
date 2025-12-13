@@ -73,7 +73,13 @@ public class AdminTheaterController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<TheaterStatsResponse> getTheaterStats() {
-        return ResponseEntity.ok(theaterService.getTheaterStats());
+    public ResponseEntity<java.util.Map<String, Object>> getTheaterStats() {
+        TheaterStatsResponse stats = theaterService.getTheaterStats();
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("totalTheaters", stats.getTotalTheaters());
+        response.put("activeTheaters", stats.getTotalTheaters()); // Assuming all are active for now
+        response.put("totalScreens", stats.getTotalScreens());
+        response.put("totalSeats", stats.getTotalSeats());
+        return ResponseEntity.ok(response);
     }
 }

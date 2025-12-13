@@ -76,7 +76,13 @@ public class AdminShowtimeController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<ShowtimeStatsResponse> getShowtimeStats() {
-        return ResponseEntity.ok(showtimeService.getShowtimeStats());
+    public ResponseEntity<Map<String, Object>> getShowtimeStats() {
+        ShowtimeStatsResponse stats = showtimeService.getShowtimeStats();
+        Map<String, Object> response = new HashMap<>();
+        response.put("totalShowtimes", stats.getTotalShowtimes());
+        response.put("upcomingShowtimes", stats.getUpcomingShowtimes());
+        response.put("completedShowtimes", stats.getTotalShowtimes() - stats.getUpcomingShowtimes());
+        response.put("averageOccupancy", 0.0); // Add calculation if needed
+        return ResponseEntity.ok(response);
     }
 }

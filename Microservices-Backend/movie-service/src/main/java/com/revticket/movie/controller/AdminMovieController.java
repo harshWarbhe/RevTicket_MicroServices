@@ -85,7 +85,12 @@ public class AdminMovieController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<MovieStatsResponse> getMovieStats() {
-        return ResponseEntity.ok(movieService.getMovieStats());
+    public ResponseEntity<java.util.Map<String, Object>> getMovieStats() {
+        MovieStatsResponse stats = movieService.getMovieStats();
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("totalMovies", stats.getTotalMovies());
+        response.put("activeMovies", stats.getActiveMovies());
+        response.put("upcomingMovies", stats.getUpcomingMovies());
+        return ResponseEntity.ok(response);
     }
 }

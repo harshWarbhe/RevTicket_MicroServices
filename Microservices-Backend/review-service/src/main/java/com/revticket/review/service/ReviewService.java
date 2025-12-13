@@ -196,4 +196,16 @@ public class ReviewService {
             return false;
         }
     }
+
+    public Map<String, Object> getReviewStats() {
+        Long totalReviews = reviewRepository.count();
+        Long approvedReviews = reviewRepository.countByApprovedTrue();
+        Long pendingReviews = reviewRepository.countByApprovedFalse();
+        
+        Map<String, Object> stats = new java.util.HashMap<>();
+        stats.put("totalReviews", totalReviews);
+        stats.put("approvedReviews", approvedReviews);
+        stats.put("pendingReviews", pendingReviews);
+        return stats;
+    }
 }

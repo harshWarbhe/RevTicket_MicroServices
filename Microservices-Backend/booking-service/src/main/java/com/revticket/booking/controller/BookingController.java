@@ -2,14 +2,18 @@ package com.revticket.booking.controller;
 
 import com.revticket.booking.dto.BookingRequest;
 import com.revticket.booking.dto.BookingResponse;
+import com.revticket.booking.dto.BookingStatsResponse;
 import com.revticket.booking.dto.CancellationRequest;
 import com.revticket.booking.service.BookingService;
 import com.revticket.booking.util.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Booking Controller - Matches Monolithic Implementation
@@ -123,5 +127,19 @@ public class BookingController {
             @PathVariable("id") String id,
             @RequestParam String transactionId) {
         return ResponseEntity.ok(bookingService.confirmPayment(id, transactionId));
+    }
+
+    @GetMapping("/admin/bookings/stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> getBookingStats() {
+        BookingStatsResponse stats = bookingService.getBookingStats();
+        Map<String, Object> response = new HashMap<>();
+        response.put("totalBookings", stats.getTotalBookings());
+        response.put("confirmedBookings", stats.getTotalBookings() - stats.getCancelledBookings());
+        response.put("cancelledBookings", stats.getCancelledBookings());
+        response.put("pendingBookings", 0L);
+        response.put("averageBookingValue", 0.0);
+        response.put("totalSeatsBooked", stats.getTotalSeatsBooked());
+        return ResponseEntity.ok(response);
     }
 }
