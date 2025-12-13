@@ -665,7 +665,7 @@ API_GATEWAY_URL=http://localhost:8080
                     
                     View build: ${env.BUILD_URL}
                 """,
-                to: "${env.CHANGE_AUTHOR_EMAIL ?: 'dev-team@example.com'}"
+                to: "${env.CHANGE_AUTHOR_EMAIL ?: 'harshwarbhe18@gmail.com'}"
             )
         }
         failure {
@@ -681,7 +681,7 @@ API_GATEWAY_URL=http://localhost:8080
                     View build: ${env.BUILD_URL}
                     Console: ${env.BUILD_URL}console
                 """,
-                to: "${env.CHANGE_AUTHOR_EMAIL ?: 'dev-team@example.com'}"
+                to: "${env.CHANGE_AUTHOR_EMAIL ?: 'harshwarbhe18@gmail.com'}"
             )
         }
     }
