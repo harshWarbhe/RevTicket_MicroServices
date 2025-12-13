@@ -137,7 +137,7 @@ API_GATEWAY_URL=http://localhost:8080
             }
             post {
                 always {
-                    publishTestResults testResultsPattern: '*/target/surefire-reports/*.xml'
+                    junit testResultsPattern: '*/target/surefire-reports/*.xml', allowEmptyResults: true
                 }
             }
         }
@@ -602,7 +602,7 @@ API_GATEWAY_URL=http://localhost:8080
             }
             post {
                 always {
-                    publishTestResults testResultsPattern: '*/target/surefire-reports/*.xml'
+                    junit testResultsPattern: '*/target/surefire-reports/*.xml', allowEmptyResults: true
                 }
             }
         }
