@@ -2,171 +2,47 @@ pipeline {
     agent any
     
     environment {
-        DOCKER_REGISTRY = "${env.DOCKER_REGISTRY ?: 'docker.io'}"
-        DOCKER_REPO = "${env.DOCKER_REPO ?: 'harshwarbhe'}"
-        DOCKER_CREDENTIALS_ID = "${env.DOCKER_CREDENTIALS_ID ?: 'harshwarbhe'}"
+        DOCKER_REPO = "harshwarbhe"
+        DOCKER_CREDENTIALS_ID = "docker-hub-credentials"
+        BUILD_VERSION = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
     }
     
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
-                script {
-                    env.BUILD_VERSION = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
-                }
             }
         }
         
-        stage('Environment Setup') {
-            steps {
-                script {
-                    // Set up environment paths
-                    env.PATH = "${env.PATH}:/usr/local/bin:/opt/homebrew/bin"
-                    
-                    // Set up Java environment for macOS
-                    sh '''
-                        # Set JAVA_HOME for macOS
-                        export JAVA_HOME=$(/usr/libexec/java_home -v 17 2>/dev/null || /usr/libexec/java_home)
-                        echo "JAVA_HOME: $JAVA_HOME"
-                        
-                        # Verify Java installation
-                        java -version
-                        mvn -version
-                    '''
-                
-                    // Using provided configuration values
-                    // In a production environment, these should be managed via proper Credentials Binding
-                    def mysqlRootPassword = 'root'
-                    def jwtSecret = 'RevTicketSecretKeyForJWTTokenGeneration2024SecureAndLongEnough'
-                    def razorpayKeyId = 'rzp_test_Ro278zkDXduScL'
-                    def razorpayKeySecret = 'PBoZU26dOzGM9ABFwq4Ljc2p'
-                    def mailUsername = 'harshwarbhe18@gmail.com'
-                    def mailPassword = 'hghtodqpoaubkqjh'
-                    
-                    // Try to load safe credentials if available for MySQL root password only
-                    try {
-                         withCredentials([string(credentialsId: 'mysql-root-password', variable: 'PWD')]) {
-                            mysqlRootPassword = PWD
-                         }
-                    } catch (Exception e) {
-                         echo "Using default MySQL password."
-                    }
-
-                    writeFile file: '.env', text: """
-MYSQL_ROOT_PASSWORD=${mysqlRootPassword}
-MYSQL_DATABASE=revticket_db
-JWT_SECRET=${jwtSecret}
-RAZORPAY_KEY_ID=${razorpayKeyId}
-RAZORPAY_KEY_SECRET=${razorpayKeySecret}
-MAIL_USERNAME=${mailUsername}
-MAIL_PASSWORD=${mailPassword}
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-FRONTEND_URL=http://localhost:4200
-API_GATEWAY_URL=http://localhost:8080
-"""
-                    env.MYSQL_ROOT_PASSWORD = mysqlRootPassword
-                }
-            }
-        }
-        
-        stage('Install Dependencies') {
-            steps {
-                sh '''
-                    # Check for Node.js on macOS (assume pre-installed)
-                    if ! command -v node &> /dev/null; then
-                        echo "Node.js not found! Please install Node.js on the Jenkins agent."
-                        exit 1
-                    fi
-                    node --version
-                    npm --version
-                '''
-            }
-        }
-        
-        stage('Setup Databases') {
-            steps {
-                // Ensure Docker is available before trying to run containers
-                sh '''
-                    if ! command -v docker &> /dev/null; then
-                         echo "Docker not found in PATH: $PATH"
-                         exit 1
-                    fi
-                
-                    # Start MySQL container
-                    docker run -d --name test-mysql \
-                        -e MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD} \
-                        -e MYSQL_DATABASE=revticket_db \
-                        -p 3307:3306 \
-                        mysql:8.0
-                    
-                    # Start MongoDB container
-                    docker run -d --name test-mongodb \
-                        -p 27018:27017 \
-                        mongo:8.0
-                    
-                    # Wait for databases to be ready
-                    sleep 30
-                '''
-            }
-        }
-        
-        stage('Build Backend Services') {
-            steps {
-                dir('Microservices-Backend') {
-                    sh '''
-                        # Set JAVA_HOME explicitly
-                        export JAVA_HOME=$(/usr/libexec/java_home -v 17 2>/dev/null || /usr/libexec/java_home)
-                        export PATH=$JAVA_HOME/bin:$PATH
-                        
-                        # Verify Java version
-                        java -version
-                        
-                        # Clean and compile all services
-                        mvn clean compile -DskipTests
-                    '''
-                }
-            }
-        }
-        
-        stage('Test Backend Services') {
-            steps {
-                dir('Microservices-Backend') {
-                    sh 'mvn test'
-                }
-            }
-            post {
-                always {
-                    junit testResults: '*/target/surefire-reports/*.xml', allowEmptyResults: true
-                }
-            }
-        }
-        
-        stage('Build Frontend') {
-            when {
-                expression { fileExists('Frontend/package.json') }
-            }
-            steps {
-                dir('Frontend') {
-                    sh 'npm ci'
-                    sh 'npm run build --prod'
-                }
-            }
-        }
-        
-        stage('Package Services') {
+        stage('Test') {
             parallel {
-                stage('Package Backend') {
+                stage('Backend Test') {
+                    steps {
+                        dir('Microservices-Backend') {
+                            sh 'mvn clean test'
+                        }
+                    }
+                }
+                stage('Frontend Test') {
+                    steps {
+                        dir('Frontend') {
+                            sh 'npm ci && npm run test -- --watch=false --browsers=ChromeHeadless'
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Build') {
+            parallel {
+                stage('Backend Build') {
                     steps {
                         dir('Microservices-Backend') {
                             sh 'mvn clean package -DskipTests'
                         }
                     }
                 }
-                stage('Package Frontend') {
-                    when {
-                        expression { fileExists('Frontend/package.json') }
-                    }
+                stage('Frontend Build') {
                     steps {
                         dir('Frontend') {
                             sh 'npm run build --prod'
@@ -176,498 +52,42 @@ API_GATEWAY_URL=http://localhost:8080
             }
         }
         
-        stage('Setup Docker Buildx') {
+        stage('Create Docker Images') {
             steps {
-                sh '''
-                    # Setup buildx for multi-platform builds
-                    docker buildx create --name multiarch --use --bootstrap || true
-                    docker buildx inspect --bootstrap
+                script {
+                    def services = [
+                        'api-gateway', 'user-service', 'movie-service', 'theater-service',
+                        'showtime-service', 'booking-service', 'payment-service', 'review-service',
+                        'search-service', 'notification-service', 'settings-service', 'dashboard-service'
+                    ]
                     
-                    # Login to Docker registry
-                    echo "Logging into Docker registry..."
-                '''
-                script {
-                    docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                        sh 'echo "Docker login successful"'
+                    services.each { service ->
+                        sh "docker build -t ${DOCKER_REPO}/${service}:${BUILD_VERSION} ./Microservices-Backend/${service}"
+                        sh "docker tag ${DOCKER_REPO}/${service}:${BUILD_VERSION} ${DOCKER_REPO}/${service}:latest"
                     }
+                    
+                    sh "docker build -t ${DOCKER_REPO}/frontend:${BUILD_VERSION} ./Frontend"
+                    sh "docker tag ${DOCKER_REPO}/frontend:${BUILD_VERSION} ${DOCKER_REPO}/frontend:latest"
                 }
             }
         }
         
-        stage('Build Docker Images') {
-            parallel {
-                stage('Build API Gateway Image') {
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/api-gateway/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:latest \
-                                    --load Microservices-Backend/api-gateway
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/api-gateway/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:latest \
-                                        --push Microservices-Backend/api-gateway
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Build User Service Image') {
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/user-service/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:latest \
-                                    --load Microservices-Backend/user-service
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/user-service/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:latest \
-                                        --push Microservices-Backend/user-service
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Build Movie Service Image') {
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/movie-service/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/movie-service:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/movie-service:latest \
-                                    --load Microservices-Backend/movie-service
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/movie-service/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/movie-service:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/movie-service:latest \
-                                        --push Microservices-Backend/movie-service
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Build Theater Service Image') {
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/theater-service/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/theater-service:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/theater-service:latest \
-                                    --load Microservices-Backend/theater-service
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/theater-service/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/theater-service:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/theater-service:latest \
-                                        --push Microservices-Backend/theater-service
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Build Showtime Service Image') {
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/showtime-service/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/showtime-service:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/showtime-service:latest \
-                                    --load Microservices-Backend/showtime-service
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/showtime-service/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/showtime-service:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/showtime-service:latest \
-                                        --push Microservices-Backend/showtime-service
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Build Booking Service Image') {
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/booking-service/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/booking-service:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/booking-service:latest \
-                                    --load Microservices-Backend/booking-service
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/booking-service/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/booking-service:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/booking-service:latest \
-                                        --push Microservices-Backend/booking-service
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Build Payment Service Image') {
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/payment-service/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/payment-service:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/payment-service:latest \
-                                    --load Microservices-Backend/payment-service
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/payment-service/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/payment-service:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/payment-service:latest \
-                                        --push Microservices-Backend/payment-service
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Build Review Service Image') {
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/review-service/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/review-service:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/review-service:latest \
-                                    --load Microservices-Backend/review-service
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/review-service/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/review-service:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/review-service:latest \
-                                        --push Microservices-Backend/review-service
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Build Search Service Image') {
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/search-service/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/search-service:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/search-service:latest \
-                                    --load Microservices-Backend/search-service
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/search-service/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/search-service:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/search-service:latest \
-                                        --push Microservices-Backend/search-service
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Build Notification Service Image') {
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/notification-service/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/notification-service:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/notification-service:latest \
-                                    --load Microservices-Backend/notification-service
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/notification-service/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/notification-service:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/notification-service:latest \
-                                        --push Microservices-Backend/notification-service
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Build Settings Service Image') {
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/settings-service/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/settings-service:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/settings-service:latest \
-                                    --load Microservices-Backend/settings-service
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/settings-service/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/settings-service:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/settings-service:latest \
-                                        --push Microservices-Backend/settings-service
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Build Dashboard Service Image') {
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Microservices-Backend/dashboard-service/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/dashboard-service:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/dashboard-service:latest \
-                                    --load Microservices-Backend/dashboard-service
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Microservices-Backend/dashboard-service/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/dashboard-service:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/dashboard-service:latest \
-                                        --push Microservices-Backend/dashboard-service
-                                """
-                            }
-                        }
-                    }
-                }
-                stage('Build Frontend Image') {
-                    when {
-                        expression { fileExists('Frontend/Dockerfile') }
-                    }
-                    steps {
-                        script {
-                            sh """
-                                docker buildx build --platform linux/amd64 \
-                                    -f Frontend/Dockerfile \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/frontend:${BUILD_VERSION} \
-                                    -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/frontend:latest \
-                                    --load Frontend
-                            """
-                            
-                            docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                                sh """
-                                    docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f Frontend/Dockerfile \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/frontend:${BUILD_VERSION} \
-                                        -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/frontend:latest \
-                                        --push Frontend
-                                """
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        stage('Security Scan') {
-            parallel {
-                stage('Trivy Scan') {
-                    steps {
-                        sh """
-                            # Install Trivy if not present
-                            if ! command -v trivy &> /dev/null; then
-                                sudo apt-get update
-                                sudo apt-get install wget apt-transport-https gnupg lsb-release
-                                wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-                                echo "deb https://aquasecurity.github.io/trivy-repo/deb \$(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-                                sudo apt-get update
-                                sudo apt-get install trivy
-                            fi
-                            
-                            # Scan critical services
-                            trivy image --format json --output trivy-api-gateway.json ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:${BUILD_VERSION} || true
-                            trivy image --format json --output trivy-user-service.json ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:${BUILD_VERSION} || true
-                            trivy image --format json --output trivy-payment-service.json ${DOCKER_REGISTRY}/${DOCKER_REPO}/payment-service:${BUILD_VERSION} || true
-                        """
-                    }
-                    post {
-                        always {
-                            archiveArtifacts artifacts: 'trivy-*.json', fingerprint: true, allowEmptyArchive: true
-                        }
-                    }
-                }
-                stage('OWASP Dependency Check') {
-                    steps {
-                        dir('Microservices-Backend') {
-                            sh 'mvn org.owasp:dependency-check-maven:check || true'
-                        }
-                    }
-                    post {
-                        always {
-                            publishHTML([
-                                allowMissing: true,
-                                alwaysLinkToLastBuild: true,
-                                keepAll: true,
-                                reportDir: 'target',
-                                reportFiles: 'dependency-check-report.html',
-                                reportName: 'OWASP Dependency Check Report'
-                            ])
-                        }
-                    }
-                }
-            }
-        }
-        
-        stage('Deploy to Staging') {
-            when {
-                branch 'develop'
-            }
+        stage('Push To DockerHub') {
             steps {
                 script {
-                    sh """
-                        # Update docker-compose with new image versions
-                        sed -i 's|image: .*harshwarbhe/api-gateway.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:${BUILD_VERSION}|g' docker-compose.yml
-                        sed -i 's|image: .*harshwarbhe/user-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:${BUILD_VERSION}|g' docker-compose.yml
-                        sed -i 's|image: .*harshwarbhe/movie-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/movie-service:${BUILD_VERSION}|g' docker-compose.yml
-                        sed -i 's|image: .*harshwarbhe/theater-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/theater-service:${BUILD_VERSION}|g' docker-compose.yml
-                        sed -i 's|image: .*harshwarbhe/showtime-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/showtime-service:${BUILD_VERSION}|g' docker-compose.yml
-                        sed -i 's|image: .*harshwarbhe/booking-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/booking-service:${BUILD_VERSION}|g' docker-compose.yml
-                        sed -i 's|image: .*harshwarbhe/payment-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/payment-service:${BUILD_VERSION}|g' docker-compose.yml
-                        sed -i 's|image: .*harshwarbhe/review-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/review-service:${BUILD_VERSION}|g' docker-compose.yml
-                        sed -i 's|image: .*harshwarbhe/search-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/search-service:${BUILD_VERSION}|g' docker-compose.yml
-                        sed -i 's|image: .*harshwarbhe/notification-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/notification-service:${BUILD_VERSION}|g' docker-compose.yml
-                        sed -i 's|image: .*harshwarbhe/settings-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/settings-service:${BUILD_VERSION}|g' docker-compose.yml
-                        sed -i 's|image: .*harshwarbhe/dashboard-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/dashboard-service:${BUILD_VERSION}|g' docker-compose.yml
+                    docker.withRegistry('https://docker.io', "${DOCKER_CREDENTIALS_ID}") {
+                        def services = [
+                            'api-gateway', 'user-service', 'movie-service', 'theater-service',
+                            'showtime-service', 'booking-service', 'payment-service', 'review-service',
+                            'search-service', 'notification-service', 'settings-service', 'dashboard-service',
+                            'frontend'
+                        ]
                         
-                        # Deploy with Docker Compose
-                        docker-compose down || true
-                        docker-compose pull
-                        docker-compose up -d
-                        
-                        # Wait for services to be ready
-                        sleep 30
-                    """
-                }
-            }
-        }
-        
-        stage('Integration Tests') {
-            when {
-                branch 'develop'
-            }
-            steps {
-                script {
-                    sh '''
-                        # Wait for services to be ready
-                        sleep 60
-                        
-                        # Run integration tests
-                        dir('Microservices-Backend') {
-                            mvn test -Dtest=**/*IntegrationTest || true
+                        services.each { service ->
+                            sh "docker push ${DOCKER_REPO}/${service}:${BUILD_VERSION}"
+                            sh "docker push ${DOCKER_REPO}/${service}:latest"
                         }
-                    '''
-                }
-            }
-            post {
-                always {
-                    junit testResults: '*/target/surefire-reports/*.xml', allowEmptyResults: true
-                }
-            }
-        }
-        
-        stage('Deploy to Production') {
-            when {
-                branch 'main'
-            }
-            steps {
-                input message: 'Deploy to Production?', ok: 'Deploy'
-                script {
-                    sh """
-                        # Create production docker-compose file
-                        cp docker-compose.yml docker-compose.prod.yml
-                        
-                        # Update production compose with new image versions
-                        sed -i 's|image: .*harshwarbhe/api-gateway.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:${BUILD_VERSION}|g' docker-compose.prod.yml
-                        sed -i 's|image: .*harshwarbhe/user-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:${BUILD_VERSION}|g' docker-compose.prod.yml
-                        sed -i 's|image: .*harshwarbhe/movie-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/movie-service:${BUILD_VERSION}|g' docker-compose.prod.yml
-                        sed -i 's|image: .*harshwarbhe/theater-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/theater-service:${BUILD_VERSION}|g' docker-compose.prod.yml
-                        sed -i 's|image: .*harshwarbhe/showtime-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/showtime-service:${BUILD_VERSION}|g' docker-compose.prod.yml
-                        sed -i 's|image: .*harshwarbhe/booking-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/booking-service:${BUILD_VERSION}|g' docker-compose.prod.yml
-                        sed -i 's|image: .*harshwarbhe/payment-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/payment-service:${BUILD_VERSION}|g' docker-compose.prod.yml
-                        sed -i 's|image: .*harshwarbhe/review-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/review-service:${BUILD_VERSION}|g' docker-compose.prod.yml
-                        sed -i 's|image: .*harshwarbhe/search-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/search-service:${BUILD_VERSION}|g' docker-compose.prod.yml
-                        sed -i 's|image: .*harshwarbhe/notification-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/notification-service:${BUILD_VERSION}|g' docker-compose.prod.yml
-                        sed -i 's|image: .*harshwarbhe/settings-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/settings-service:${BUILD_VERSION}|g' docker-compose.prod.yml
-                        sed -i 's|image: .*harshwarbhe/dashboard-service.*|image: ${DOCKER_REGISTRY}/${DOCKER_REPO}/dashboard-service:${BUILD_VERSION}|g' docker-compose.prod.yml
-                        
-                        # Deploy production environment
-                        docker-compose -f docker-compose.prod.yml down || true
-                        docker-compose -f docker-compose.prod.yml pull
-                        docker-compose -f docker-compose.prod.yml up -d
-                        
-                        # Wait for services to be ready
-                        sleep 60
-                    """
-                }
-            }
-        }
-        
-        stage('Health Check') {
-            steps {
-                script {
-                    sh '''
-                        # Health check endpoints for all services
-                        echo "Checking service health..."
-                        
-                        # Wait for services to be fully ready
-                        sleep 30
-                        
-                        # Check each service health endpoint
-                        for port in 8080 8081 8082 8083 8084 8085 8086 8087 8088 8089 8090 8091; do
-                            echo "Checking service on port $port..."
-                            curl -f http://localhost:$port/actuator/health || echo "Service on port $port not ready"
-                        done
-                        
-                        # Check frontend if exists
-                        if [ -f "Frontend/package.json" ]; then
-                            curl -f http://localhost:4200 || echo "Frontend not ready"
-                        fi
-                        
-                        # Show running containers
-                        docker-compose ps
-                    '''
+                    }
                 }
             }
         }
@@ -675,47 +95,8 @@ API_GATEWAY_URL=http://localhost:8080
     
     post {
         always {
-            sh '''
-                export PATH=$PATH:/usr/local/bin:/opt/homebrew/bin
-                # Cleanup test databases
-                docker stop test-mysql test-mongodb || true
-                docker rm test-mysql test-mongodb || true
-            '''
+            sh 'docker system prune -f'
             cleanWs()
-        }
-        success {
-            echo "Build Successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
-            // emailext (
-            //     subject: "✅ RevTicket Build Success - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-            //     body: """
-            //         Build successful for RevTicket Microservices!
-            //         
-            //         Build: ${env.BUILD_NUMBER}
-            //         Version: ${BUILD_VERSION}
-            //         Branch: ${env.BRANCH_NAME}
-            //         Commit: ${env.GIT_COMMIT}
-            //         
-            //         View build: ${env.BUILD_URL}
-            //     """,
-            //     to: "${env.CHANGE_AUTHOR_EMAIL ?: 'harshwarbhe18@gmail.com'}"
-            // )
-        }
-        failure {
-            echo "Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
-            // emailext (
-            //     subject: "❌ RevTicket Build Failed - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-            //     body: """
-            //         Build failed for RevTicket Microservices!
-            //         
-            //         Build: ${env.BUILD_NUMBER}
-            //         Branch: ${env.BRANCH_NAME}
-            //         Commit: ${env.GIT_COMMIT}
-            //         
-            //         View build: ${env.BUILD_URL}
-            //         Console: ${env.BUILD_URL}console
-            //     """,
-            //     to: "${env.CHANGE_AUTHOR_EMAIL ?: 'harshwarbhe18@gmail.com'}"
-            // )
         }
     }
 }
