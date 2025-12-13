@@ -653,36 +653,38 @@ API_GATEWAY_URL=http://localhost:8080
             cleanWs()
         }
         success {
-            emailext (
-                subject: "✅ RevTicket Build Success - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """
-                    Build successful for RevTicket Microservices!
-                    
-                    Build: ${env.BUILD_NUMBER}
-                    Version: ${BUILD_VERSION}
-                    Branch: ${env.BRANCH_NAME}
-                    Commit: ${env.GIT_COMMIT}
-                    
-                    View build: ${env.BUILD_URL}
-                """,
-                to: "${env.CHANGE_AUTHOR_EMAIL ?: 'harshwarbhe18@gmail.com'}"
-            )
+            echo "Build Successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            // emailext (
+            //     subject: "✅ RevTicket Build Success - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            //     body: """
+            //         Build successful for RevTicket Microservices!
+            //         
+            //         Build: ${env.BUILD_NUMBER}
+            //         Version: ${BUILD_VERSION}
+            //         Branch: ${env.BRANCH_NAME}
+            //         Commit: ${env.GIT_COMMIT}
+            //         
+            //         View build: ${env.BUILD_URL}
+            //     """,
+            //     to: "${env.CHANGE_AUTHOR_EMAIL ?: 'harshwarbhe18@gmail.com'}"
+            // )
         }
         failure {
-            emailext (
-                subject: "❌ RevTicket Build Failed - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """
-                    Build failed for RevTicket Microservices!
-                    
-                    Build: ${env.BUILD_NUMBER}
-                    Branch: ${env.BRANCH_NAME}
-                    Commit: ${env.GIT_COMMIT}
-                    
-                    View build: ${env.BUILD_URL}
-                    Console: ${env.BUILD_URL}console
-                """,
-                to: "${env.CHANGE_AUTHOR_EMAIL ?: 'harshwarbhe18@gmail.com'}"
-            )
+            echo "Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            // emailext (
+            //     subject: "❌ RevTicket Build Failed - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            //     body: """
+            //         Build failed for RevTicket Microservices!
+            //         
+            //         Build: ${env.BUILD_NUMBER}
+            //         Branch: ${env.BRANCH_NAME}
+            //         Commit: ${env.GIT_COMMIT}
+            //         
+            //         View build: ${env.BUILD_URL}
+            //         Console: ${env.BUILD_URL}console
+            //     """,
+            //     to: "${env.CHANGE_AUTHOR_EMAIL ?: 'harshwarbhe18@gmail.com'}"
+            // )
         }
     }
 }
