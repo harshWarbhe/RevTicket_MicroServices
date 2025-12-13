@@ -21,7 +21,7 @@ services:
     image: mongo:6.0
     container_name: revticket-mongodb
     ports:
-      - "27018:27017"
+      - "27017:27017"
     volumes:
       - mongodb_data:/data/db
     networks:

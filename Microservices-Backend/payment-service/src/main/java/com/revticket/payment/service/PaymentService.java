@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,7 +18,7 @@ public class PaymentService {
 
     @Autowired
     private PaymentRepository paymentRepository;
-    
+
     @Autowired
     private BookingConfirmationClient bookingConfirmationClient;
 
@@ -33,7 +32,7 @@ public class PaymentService {
         payment.setTransactionId("TXN" + UUID.randomUUID().toString().substring(0, 12).toUpperCase());
 
         Payment savedPayment = paymentRepository.save(payment);
-        
+
         // Update booking with payment information
         try {
             updateBookingPaymentStatus(request.getBookingId(), savedPayment.getTransactionId());
@@ -41,10 +40,10 @@ public class PaymentService {
             // Log error but don't fail payment
             System.err.println("Failed to update booking payment status: " + e.getMessage());
         }
-        
+
         return savedPayment;
     }
-    
+
     private void updateBookingPaymentStatus(String bookingId, String transactionId) {
         try {
             bookingConfirmationClient.confirmPayment(bookingId, transactionId);
@@ -66,6 +65,7 @@ public class PaymentService {
         LocalDateTime now = LocalDateTime.now();
         Double revenueLast7Days = paymentRepository.sumSuccessfulPaymentsAfter(now.minusDays(7));
         Double revenueLast30Days = paymentRepository.sumSuccessfulPaymentsAfter(now.minusDays(30));
-        return new PaymentStatsResponse(totalRevenue, totalSuccessfulPayments, failedPayments, revenueLast7Days, revenueLast30Days);
+        return new PaymentStatsResponse(totalRevenue, totalSuccessfulPayments, failedPayments, revenueLast7Days,
+                revenueLast30Days);
     }
 }

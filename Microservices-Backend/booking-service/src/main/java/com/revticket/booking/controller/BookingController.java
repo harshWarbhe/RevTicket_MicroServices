@@ -5,7 +5,6 @@ import com.revticket.booking.dto.BookingResponse;
 import com.revticket.booking.dto.CancellationRequest;
 import com.revticket.booking.service.BookingService;
 import com.revticket.booking.util.SecurityUtil;
-import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -118,7 +117,7 @@ public class BookingController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
-    
+
     @PostMapping("/{id}/confirm-payment")
     public ResponseEntity<BookingResponse> confirmPayment(
             @PathVariable("id") String id,

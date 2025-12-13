@@ -3,7 +3,6 @@ package com.revticket.theater.service;
 import com.revticket.theater.dto.TheaterRequest;
 import com.revticket.theater.dto.TheaterResponse;
 import com.revticket.theater.dto.TheaterStatsResponse;
-import com.revticket.theater.entity.Screen;
 import com.revticket.theater.entity.Theater;
 import com.revticket.theater.repository.ScreenRepository;
 import com.revticket.theater.repository.TheaterRepository;

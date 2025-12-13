@@ -17,7 +17,6 @@ import java.util.List;
 import com.revticket.movie.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.context.annotation.Bean;
 
 @Configuration
 @EnableWebSecurity

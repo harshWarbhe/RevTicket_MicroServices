@@ -1,5 +1,6 @@
 package com.revticket.showtime.service;
 
+import com.revticket.showtime.client.BookingServiceClient;
 import com.revticket.showtime.client.MovieServiceClient;
 import com.revticket.showtime.client.TheaterServiceClient;
 import com.revticket.showtime.dto.ShowtimeRequest;
@@ -15,6 +16,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -30,6 +32,9 @@ public class ShowtimeService {
     
     @Autowired
     private MovieServiceClient movieServiceClient;
+    
+    @Autowired
+    private BookingServiceClient bookingServiceClient;
 
     @Transactional(readOnly = true)
     public List<ShowtimeResponse> getAllShowtimes() {
@@ -102,6 +107,18 @@ public class ShowtimeService {
         Showtime showtime = new Showtime();
         applyRequest(showtime, request, true);
         Showtime saved = showtimeRepository.save(showtime);
+        
+        // Initialize seats for the new showtime
+        try {
+            Map<String, String> seatRequest = Map.of(
+                "showtimeId", saved.getId(),
+                "screenId", saved.getScreen()
+            );
+            bookingServiceClient.initializeSeats(seatRequest);
+        } catch (Exception e) {
+            System.err.println("Failed to initialize seats for showtime " + saved.getId() + ": " + e.getMessage());
+        }
+        
         return mapToResponse(saved);
     }
 
