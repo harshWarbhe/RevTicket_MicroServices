@@ -1,0 +1,249 @@
+# Docker Compose for RevTicket Microservices with Consul
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: revticket-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: tiger
+      MYSQL_DATABASE: revticket_db
+      MYSQL_ROOT_HOST: '%'
+    command: --default-authentication-plugin=mysql_native_password --bind-address=0.0.0.0
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - revticket-network
+
+  mongodb:
+    image: mongo:6.0
+    container_name: revticket-mongodb
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - revticket-network
+
+  consul:
+    image: consul:1.15
+    container_name: consul
+    ports:
+      - "8500:8500"
+    command: consul agent -dev -ui -client=0.0.0.0
+    networks:
+      - revticket-network
+    healthcheck:
+      test: ["CMD-SHELL", "consul members"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  api-gateway:
+    build: ./Microservices-Backend/api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    depends_on:
+      consul:
+        condition: service_healthy
+    networks:
+      - revticket-network
+    restart: unless-stopped
+
+  user-service:
+    build: ./Microservices-Backend/user-service
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/user_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: tiger
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    depends_on:
+      - mysql
+      - consul
+    networks:
+      - revticket-network
+
+  movie-service:
+    build: ./Microservices-Backend/movie-service
+    container_name: movie-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/movie_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: tiger
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    depends_on:
+      - mysql
+      - consul
+    networks:
+      - revticket-network
+
+  theater-service:
+    build: ./Microservices-Backend/theater-service
+    container_name: theater-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/theater_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: tiger
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    depends_on:
+      - mysql
+      - consul
+    networks:
+      - revticket-network
+
+  showtime-service:
+    build: ./Microservices-Backend/showtime-service
+    container_name: showtime-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/showtime_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: tiger
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    depends_on:
+      - mysql
+      - consul
+    networks:
+      - revticket-network
+
+  booking-service:
+    build: ./Microservices-Backend/booking-service
+    container_name: booking-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/booking_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: tiger
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    depends_on:
+      - mysql
+      - consul
+    networks:
+      - revticket-network
+
+  payment-service:
+    build: ./Microservices-Backend/payment-service
+    container_name: payment-service
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/payment_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: tiger
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    depends_on:
+      - mysql
+      - consul
+    networks:
+      - revticket-network
+
+  review-service:
+    build: ./Microservices-Backend/review-service
+    container_name: review-service
+    ports:
+      - "8087:8087"
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/review_service_db
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    depends_on:
+      - mongodb
+      - consul
+    networks:
+      - revticket-network
+
+  search-service:
+    build: ./Microservices-Backend/search-service
+    container_name: search-service
+    ports:
+      - "8088:8088"
+    environment:
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    depends_on:
+      - consul
+    networks:
+      - revticket-network
+
+  notification-service:
+    build: ./Microservices-Backend/notification-service
+    container_name: notification-service
+    ports:
+      - "8089:8089"
+    environment:
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    depends_on:
+      - consul
+    networks:
+      - revticket-network
+
+  settings-service:
+    build: ./Microservices-Backend/settings-service
+    container_name: settings-service
+    ports:
+      - "8090:8090"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/settings_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: tiger
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    depends_on:
+      - mysql
+      - consul
+    networks:
+      - revticket-network
+
+  dashboard-service:
+    build: ./Microservices-Backend/dashboard-service
+    container_name: dashboard-service
+    ports:
+      - "8091:8091"
+    environment:
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_CLOUD_CONSUL_PORT: 8500
+    depends_on:
+      - consul
+    networks:
+      - revticket-network
+
+  frontend:
+    build: ./Frontend
+    container_name: revticket-frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - revticket-network
+
+volumes:
+  mysql_data:
+  mongodb_data:
+
+networks:
+  revticket-network:
+    driver: bridge
