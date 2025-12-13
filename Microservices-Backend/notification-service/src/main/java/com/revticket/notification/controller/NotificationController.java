@@ -33,21 +33,7 @@ public class NotificationController {
     }
 
     @PostMapping("/booking-confirmation")
-    public ResponseEntity<Map<String, String>> sendBookingConfirmation(@RequestBody Object requestBody) {
-        BookingNotificationRequest request;
-        if (requestBody instanceof Map) {
-            Map<String, Object> requestMap = (Map<String, Object>) requestBody;
-            request = new BookingNotificationRequest();
-            request.setCustomerEmail((String) requestMap.get("customerEmail"));
-            request.setCustomerName((String) requestMap.get("customerName"));
-            request.setTicketNumber((String) requestMap.get("ticketNumber"));
-            request.setBookingId((String) requestMap.get("bookingId"));
-            if (requestMap.get("totalAmount") != null) {
-                request.setTotalAmount(((Number) requestMap.get("totalAmount")).doubleValue());
-            }
-        } else {
-            request = (BookingNotificationRequest) requestBody;
-        }
+    public ResponseEntity<Map<String, String>> sendBookingConfirmation(@RequestBody BookingNotificationRequest request) {
         // Save notification to MongoDB
         Notification notification = null;
         try {

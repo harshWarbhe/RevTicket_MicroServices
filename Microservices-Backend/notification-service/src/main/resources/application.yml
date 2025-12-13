@@ -13,8 +13,10 @@ spring:
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:nanijohn460@gmail.com}
-    password: ${MAIL_PASSWORD:femrwvgygpiurafn}
+    username: ${MAIL_USERNAME:harshwarbhe18@gmail.com}
+    password: ${MAIL_PASSWORD:hghtodqpoaubkqjh}
+    default-encoding: UTF-8
+    test-connection: false
     properties:
       mail:
         smtp:
@@ -22,9 +24,12 @@ spring:
           starttls:
             enable: true
             required: true
-          connectiontimeout: 5000
-          timeout: 5000
-          writetimeout: 5000
+          ssl:
+            trust: smtp.gmail.com
+          connectiontimeout: 30000
+          timeout: 30000
+          writetimeout: 30000
+        debug: false
 
   cloud:
     consul:
@@ -53,7 +58,10 @@ management:
         include: health,info
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: always
+  health:
+    mail:
+      enabled: true
 
 logging:
   level:
