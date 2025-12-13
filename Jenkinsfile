@@ -20,8 +20,19 @@ pipeline {
         stage('Environment Setup') {
             steps {
                 script {
-                    // unexpected "docker: command not found" suggests missing PATH on local jenkins agent
+                    // Set up environment paths
                     env.PATH = "${env.PATH}:/usr/local/bin:/opt/homebrew/bin"
+                    
+                    // Set up Java environment for macOS
+                    sh '''
+                        # Set JAVA_HOME for macOS
+                        export JAVA_HOME=$(/usr/libexec/java_home -v 17 2>/dev/null || /usr/libexec/java_home)
+                        echo "JAVA_HOME: $JAVA_HOME"
+                        
+                        # Verify Java installation
+                        java -version
+                        mvn -version
+                    '''
                 
                     // Using provided configuration values
                     // In a production environment, these should be managed via proper Credentials Binding
@@ -103,7 +114,17 @@ API_GATEWAY_URL=http://localhost:8080
         stage('Build Backend Services') {
             steps {
                 dir('Microservices-Backend') {
-                    sh 'mvn clean compile -DskipTests'
+                    sh '''
+                        # Set JAVA_HOME explicitly
+                        export JAVA_HOME=$(/usr/libexec/java_home -v 17 2>/dev/null || /usr/libexec/java_home)
+                        export PATH=$JAVA_HOME/bin:$PATH
+                        
+                        # Verify Java version
+                        java -version
+                        
+                        # Clean and compile all services
+                        mvn clean compile -DskipTests
+                    '''
                 }
             }
         }
