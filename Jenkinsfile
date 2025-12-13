@@ -20,6 +20,9 @@ pipeline {
         stage('Environment Setup') {
             steps {
                 script {
+                    // unexpected "docker: command not found" suggests missing PATH on local jenkins agent
+                    env.PATH = "${env.PATH}:/usr/local/bin:/opt/homebrew/bin"
+                
                     // Using provided configuration values
                     // In a production environment, these should be managed via proper Credentials Binding
                     def mysqlRootPassword = 'root'
@@ -59,10 +62,10 @@ API_GATEWAY_URL=http://localhost:8080
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    # Install Node.js 18 if not present
-                    if ! command -v node &> /dev/null || [[ $(node -v | cut -d'v' -f2 | cut -d'.' -f1) -lt 18 ]]; then
-                        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-                        sudo apt-get install -y nodejs
+                    # Check for Node.js on macOS (assume pre-installed)
+                    if ! command -v node &> /dev/null; then
+                        echo "Node.js not found! Please install Node.js on the Jenkins agent."
+                        exit 1
                     fi
                     node --version
                     npm --version
@@ -72,7 +75,13 @@ API_GATEWAY_URL=http://localhost:8080
         
         stage('Setup Databases') {
             steps {
+                // Ensure Docker is available before trying to run containers
                 sh '''
+                    if ! command -v docker &> /dev/null; then
+                         echo "Docker not found in PATH: $PATH"
+                         exit 1
+                    fi
+                
                     # Start MySQL container
                     docker run -d --name test-mysql \
                         -e MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD} \
@@ -646,6 +655,7 @@ API_GATEWAY_URL=http://localhost:8080
     post {
         always {
             sh '''
+                export PATH=$PATH:/usr/local/bin:/opt/homebrew/bin
                 # Cleanup test databases
                 docker stop test-mysql test-mongodb || true
                 docker rm test-mysql test-mongodb || true
