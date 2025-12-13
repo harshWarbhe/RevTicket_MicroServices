@@ -113,17 +113,22 @@
 
 All Jenkins files will automatically use our Lombok fixes since they're configured in the pom.xml files.
 
-## Critical Issue Resolved - Java 17 Compatibility:
+## Critical Java 17 Compatibility Issue Resolved:
 
-⚠️ **Initial Issue**: Lombok 1.18.30 had Java 17 compatibility problems causing `ExceptionInInitializerError`
+⚠️ **Root Cause**: `annotationProcessorPaths` configuration in Maven compiler plugin caused Java 17 compatibility problems
 
-✅ **Solution Applied**: Upgraded Lombok from 1.18.30 to 1.18.32 for full Java 17 support
+✅ **Final Solution**:
 
-✅ **Verification Complete**: All services now compile successfully with Lombok 1.18.32:
+- Upgraded Lombok: 1.18.30 → 1.18.36
+- Removed problematic `annotationProcessorPaths` configuration
+- Kept simple `<compilerArgs>` configuration
 
-- api-gateway: SUCCESS ✅
-- user-service: SUCCESS ✅
-- movie-service: SUCCESS ✅
+✅ **Verification Complete**: All services now compile successfully:
+
+- api-gateway: SUCCESS ✅ (Java 17 + Lombok 1.18.36)
+- user-service: SUCCESS ✅ (Java 17 + Lombok 1.18.36)
+- movie-service: SUCCESS ✅ (Java 17 + Lombok 1.18.36)
+- notification-service: SUCCESS ✅ (Java 17 + Lombok 1.18.36)
 
 ## Final Status:
 
