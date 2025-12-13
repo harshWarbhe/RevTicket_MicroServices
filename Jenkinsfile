@@ -1,11 +1,6 @@
 pipeline {
     agent any
     
-    tools {
-        maven 'Maven-3.9.0'
-        nodejs 'NodeJS-18'
-    }
-    
     environment {
         DOCKER_REPO = "harshwarbhe"
         DOCKER_CREDENTIALS_ID = "docker-credentials"
@@ -25,14 +20,14 @@ pipeline {
                 stage('Backend Test') {
                     steps {
                         dir('Microservices-Backend') {
-                            sh 'mvn clean test -DskipTests'
+                            sh '/usr/local/bin/mvn clean test -DskipTests || mvn clean test -DskipTests'
                         }
                     }
                 }
                 stage('Frontend Test') {
                     steps {
                         dir('Frontend') {
-                            sh 'npm ci'
+                            sh '/usr/local/bin/npm ci || npm ci'
                         }
                     }
                 }
@@ -44,14 +39,14 @@ pipeline {
                 stage('Backend Build') {
                     steps {
                         dir('Microservices-Backend') {
-                            sh 'mvn clean package -DskipTests'
+                            sh '/usr/local/bin/mvn clean package -DskipTests || mvn clean package -DskipTests'
                         }
                     }
                 }
                 stage('Frontend Build') {
                     steps {
                         dir('Frontend') {
-                            sh 'npm run build --prod'
+                            sh '/usr/local/bin/npm run build --prod || npm run build --prod'
                         }
                     }
                 }
