@@ -35,7 +35,7 @@
     <properties>
         <java.version>17</java.version>
         <spring-cloud.version>2023.0.0</spring-cloud.version>
-        <lombok.version>1.18.30</lombok.version>
+        <lombok.version>1.18.34</lombok.version>
         <jwt.version>0.12.3</jwt.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
@@ -70,6 +70,16 @@
                         <maxmem>512m</maxmem>
                         <compilerArgs>
                             <arg>-parameters</arg>
+                            <arg>--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                            <arg>--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+                            <arg>--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
+                            <arg>--add-opens=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
+                            <arg>--add-opens=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
+                            <arg>--add-opens=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
+                            <arg>--add-opens=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
+                            <arg>--add-opens=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+                            <arg>--add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+                            <arg>--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED</arg>
                         </compilerArgs>
                         <annotationProcessorPaths>
                             <path>
