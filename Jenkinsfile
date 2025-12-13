@@ -2,9 +2,9 @@ pipeline {
     agent any
     
     environment {
-        DOCKER_REGISTRY = env.DOCKER_REGISTRY ?: 'docker.io'
-        DOCKER_REPO = env.DOCKER_REPO ?: 'harshwarbhe'
-        DOCKER_CREDENTIALS_ID = env.DOCKER_CREDENTIALS_ID ?: 'harshwarbhe'
+        DOCKER_REGISTRY = "${env.DOCKER_REGISTRY ?: 'docker.io'}"
+        DOCKER_REPO = "${env.DOCKER_REPO ?: 'harshwarbhe'}"
+        DOCKER_CREDENTIALS_ID = "${env.DOCKER_CREDENTIALS_ID ?: 'harshwarbhe'}"
 
         MYSQL_ROOT_PASSWORD = credentials('mysql-root-password')
         JWT_SECRET = credentials('jwt-secret')
@@ -14,10 +14,10 @@ pipeline {
         MAIL_PASSWORD = credentials('mail-password')
     }
     
-    tools {
-        maven 'Maven'
-        jdk 'JDK-17'
-    }
+    // tools {
+    //     maven 'Maven'
+    //     jdk 'JDK-17'
+    // }
     
     stages {
         stage('Checkout') {
@@ -86,13 +86,17 @@ API_GATEWAY_URL=http://localhost:8080
         
         stage('Build Backend Services') {
             steps {
-                sh 'mvn clean compile -DskipTests'
+                dir('Microservices-Backend') {
+                    sh 'mvn clean compile -DskipTests'
+                }
             }
         }
         
         stage('Test Backend Services') {
             steps {
-                sh 'mvn test'
+                dir('Microservices-Backend') {
+                    sh 'mvn test'
+                }
             }
             post {
                 always {
@@ -117,7 +121,9 @@ API_GATEWAY_URL=http://localhost:8080
             parallel {
                 stage('Package Backend') {
                     steps {
-                        sh 'mvn clean package -DskipTests'
+                        dir('Microservices-Backend') {
+                            sh 'mvn clean package -DskipTests'
+                        }
                     }
                 }
                 stage('Package Frontend') {
@@ -158,19 +164,19 @@ API_GATEWAY_URL=http://localhost:8080
                         script {
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f api-gateway/Dockerfile \
+                                    -f Microservices-Backend/api-gateway/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:latest \
-                                    --load api-gateway
+                                    --load Microservices-Backend/api-gateway
                             """
                             
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f api-gateway/Dockerfile \
+                                        -f Microservices-Backend/api-gateway/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/api-gateway:latest \
-                                        --push api-gateway
+                                        --push Microservices-Backend/api-gateway
                                 """
                             }
                         }
@@ -181,19 +187,19 @@ API_GATEWAY_URL=http://localhost:8080
                         script {
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f user-service/Dockerfile \
+                                    -f Microservices-Backend/user-service/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:latest \
-                                    --load user-service
+                                    --load Microservices-Backend/user-service
                             """
                             
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f user-service/Dockerfile \
+                                        -f Microservices-Backend/user-service/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/user-service:latest \
-                                        --push user-service
+                                        --push Microservices-Backend/user-service
                                 """
                             }
                         }
@@ -204,19 +210,19 @@ API_GATEWAY_URL=http://localhost:8080
                         script {
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f movie-service/Dockerfile \
+                                    -f Microservices-Backend/movie-service/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/movie-service:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/movie-service:latest \
-                                    --load movie-service
+                                    --load Microservices-Backend/movie-service
                             """
                             
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f movie-service/Dockerfile \
+                                        -f Microservices-Backend/movie-service/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/movie-service:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/movie-service:latest \
-                                        --push movie-service
+                                        --push Microservices-Backend/movie-service
                                 """
                             }
                         }
@@ -227,19 +233,19 @@ API_GATEWAY_URL=http://localhost:8080
                         script {
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f theater-service/Dockerfile \
+                                    -f Microservices-Backend/theater-service/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/theater-service:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/theater-service:latest \
-                                    --load theater-service
+                                    --load Microservices-Backend/theater-service
                             """
                             
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f theater-service/Dockerfile \
+                                        -f Microservices-Backend/theater-service/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/theater-service:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/theater-service:latest \
-                                        --push theater-service
+                                        --push Microservices-Backend/theater-service
                                 """
                             }
                         }
@@ -250,19 +256,19 @@ API_GATEWAY_URL=http://localhost:8080
                         script {
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f showtime-service/Dockerfile \
+                                    -f Microservices-Backend/showtime-service/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/showtime-service:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/showtime-service:latest \
-                                    --load showtime-service
+                                    --load Microservices-Backend/showtime-service
                             """
                             
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f showtime-service/Dockerfile \
+                                        -f Microservices-Backend/showtime-service/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/showtime-service:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/showtime-service:latest \
-                                        --push showtime-service
+                                        --push Microservices-Backend/showtime-service
                                 """
                             }
                         }
@@ -273,19 +279,19 @@ API_GATEWAY_URL=http://localhost:8080
                         script {
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f booking-service/Dockerfile \
+                                    -f Microservices-Backend/booking-service/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/booking-service:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/booking-service:latest \
-                                    --load booking-service
+                                    --load Microservices-Backend/booking-service
                             """
                             
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f booking-service/Dockerfile \
+                                        -f Microservices-Backend/booking-service/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/booking-service:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/booking-service:latest \
-                                        --push booking-service
+                                        --push Microservices-Backend/booking-service
                                 """
                             }
                         }
@@ -296,19 +302,19 @@ API_GATEWAY_URL=http://localhost:8080
                         script {
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f payment-service/Dockerfile \
+                                    -f Microservices-Backend/payment-service/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/payment-service:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/payment-service:latest \
-                                    --load payment-service
+                                    --load Microservices-Backend/payment-service
                             """
                             
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f payment-service/Dockerfile \
+                                        -f Microservices-Backend/payment-service/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/payment-service:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/payment-service:latest \
-                                        --push payment-service
+                                        --push Microservices-Backend/payment-service
                                 """
                             }
                         }
@@ -319,19 +325,19 @@ API_GATEWAY_URL=http://localhost:8080
                         script {
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f review-service/Dockerfile \
+                                    -f Microservices-Backend/review-service/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/review-service:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/review-service:latest \
-                                    --load review-service
+                                    --load Microservices-Backend/review-service
                             """
                             
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f review-service/Dockerfile \
+                                        -f Microservices-Backend/review-service/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/review-service:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/review-service:latest \
-                                        --push review-service
+                                        --push Microservices-Backend/review-service
                                 """
                             }
                         }
@@ -342,19 +348,19 @@ API_GATEWAY_URL=http://localhost:8080
                         script {
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f search-service/Dockerfile \
+                                    -f Microservices-Backend/search-service/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/search-service:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/search-service:latest \
-                                    --load search-service
+                                    --load Microservices-Backend/search-service
                             """
                             
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f search-service/Dockerfile \
+                                        -f Microservices-Backend/search-service/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/search-service:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/search-service:latest \
-                                        --push search-service
+                                        --push Microservices-Backend/search-service
                                 """
                             }
                         }
@@ -365,19 +371,19 @@ API_GATEWAY_URL=http://localhost:8080
                         script {
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f notification-service/Dockerfile \
+                                    -f Microservices-Backend/notification-service/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/notification-service:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/notification-service:latest \
-                                    --load notification-service
+                                    --load Microservices-Backend/notification-service
                             """
                             
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f notification-service/Dockerfile \
+                                        -f Microservices-Backend/notification-service/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/notification-service:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/notification-service:latest \
-                                        --push notification-service
+                                        --push Microservices-Backend/notification-service
                                 """
                             }
                         }
@@ -388,19 +394,19 @@ API_GATEWAY_URL=http://localhost:8080
                         script {
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f settings-service/Dockerfile \
+                                    -f Microservices-Backend/settings-service/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/settings-service:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/settings-service:latest \
-                                    --load settings-service
+                                    --load Microservices-Backend/settings-service
                             """
                             
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f settings-service/Dockerfile \
+                                        -f Microservices-Backend/settings-service/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/settings-service:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/settings-service:latest \
-                                        --push settings-service
+                                        --push Microservices-Backend/settings-service
                                 """
                             }
                         }
@@ -411,19 +417,19 @@ API_GATEWAY_URL=http://localhost:8080
                         script {
                             sh """
                                 docker buildx build --platform linux/amd64 \
-                                    -f dashboard-service/Dockerfile \
+                                    -f Microservices-Backend/dashboard-service/Dockerfile \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/dashboard-service:${BUILD_VERSION} \
                                     -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/dashboard-service:latest \
-                                    --load dashboard-service
+                                    --load Microservices-Backend/dashboard-service
                             """
                             
                             docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                                 sh """
                                     docker buildx build --platform linux/amd64,linux/arm64 \
-                                        -f dashboard-service/Dockerfile \
+                                        -f Microservices-Backend/dashboard-service/Dockerfile \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/dashboard-service:${BUILD_VERSION} \
                                         -t ${DOCKER_REGISTRY}/${DOCKER_REPO}/dashboard-service:latest \
-                                        --push dashboard-service
+                                        --push Microservices-Backend/dashboard-service
                                 """
                             }
                         }
@@ -487,7 +493,9 @@ API_GATEWAY_URL=http://localhost:8080
                 }
                 stage('OWASP Dependency Check') {
                     steps {
-                        sh 'mvn org.owasp:dependency-check-maven:check || true'
+                        dir('Microservices-Backend') {
+                            sh 'mvn org.owasp:dependency-check-maven:check || true'
+                        }
                     }
                     post {
                         always {
@@ -549,7 +557,9 @@ API_GATEWAY_URL=http://localhost:8080
                         sleep 60
                         
                         # Run integration tests
-                        mvn test -Dtest=**/*IntegrationTest || true
+                        dir('Microservices-Backend') {
+                            mvn test -Dtest=**/*IntegrationTest || true
+                        }
                     '''
                 }
             }
