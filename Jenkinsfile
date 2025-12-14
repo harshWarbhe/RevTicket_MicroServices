@@ -334,6 +334,7 @@ pipeline {
             }
         }
         
+
         stage('Push Docker Images') {
             when {
                 expression { 
@@ -345,55 +346,109 @@ pipeline {
             steps {
                 script {
                     try {
-                        withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                             sh '''
                                 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+                                
+                                echo "=== Docker Hub Push Started ==="
+                                echo "Registry: ${DOCKER_REGISTRY}"
+                                echo "Project: ${PROJECT_NAME}"
+                                echo "Build Number: ${BUILD_NUMBER}"
+                                
+                                # Check Docker daemon connection
+                                echo "Checking Docker daemon connection..."
+                                docker info | head -n 5
+                                
+                                # Login to Docker Hub
+                                echo "Logging into Docker Hub..."
                                 echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
                                 
-                                # Push all images
+                                # Verify images exist
+                                echo "Verifying built images..."
+                                docker images | grep "${DOCKER_REGISTRY}/${PROJECT_NAME}" | head -n 10
+                                
+                                # Push all images with detailed logging
+                                echo "Pushing images to Docker Hub..."
+                                
+                                # Frontend
+                                echo "Pushing Frontend image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-frontend:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-frontend:latest
                                 
+                                # API Gateway
+                                echo "Pushing API Gateway image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-api-gateway:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-api-gateway:latest
                                 
+                                # User Service
+                                echo "Pushing User Service image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-user-service:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-user-service:latest
                                 
+                                # Movie Service
+                                echo "Pushing Movie Service image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-movie-service:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-movie-service:latest
                                 
+                                # Theater Service
+                                echo "Pushing Theater Service image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-theater-service:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-theater-service:latest
                                 
+                                # Showtime Service
+                                echo "Pushing Showtime Service image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-showtime-service:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-showtime-service:latest
                                 
+                                # Booking Service
+                                echo "Pushing Booking Service image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-booking-service:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-booking-service:latest
                                 
+                                # Payment Service
+                                echo "Pushing Payment Service image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-payment-service:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-payment-service:latest
                                 
+                                # Review Service
+                                echo "Pushing Review Service image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-review-service:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-review-service:latest
                                 
+                                # Search Service
+                                echo "Pushing Search Service image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-search-service:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-search-service:latest
                                 
+                                # Notification Service
+                                echo "Pushing Notification Service image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-notification-service:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-notification-service:latest
                                 
+                                # Settings Service
+                                echo "Pushing Settings Service image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-settings-service:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-settings-service:latest
                                 
+                                # Dashboard Service
+                                echo "Pushing Dashboard Service image..."
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-dashboard-service:${BUILD_NUMBER}
                                 docker push ${DOCKER_REGISTRY}/${PROJECT_NAME}-dashboard-service:latest
+                                
+                                echo "=== Docker Hub Push Completed Successfully ==="
+                                
+                                # Logout from Docker Hub
+                                docker logout
+                                
                             '''
                         }
                     } catch (Exception e) {
                         echo "Docker push failed: ${e.getMessage()}"
-                        echo "Continuing without Docker push..."
+                        echo "Build will continue without Docker push..."
+                        sh '''
+                            export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+                            docker logout || echo "Docker logout skipped"
+                        '''
                     }
                 }
             }
